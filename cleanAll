@@ -1,0 +1,8 @@
+#!/usr/bin/env zsh
+
+if [[ $# -ne 1 ]]; then
+  echo "Usage: $0 dir" >&2
+  exit 2
+fi
+
+rm -rf $1/**/Make/wmakeToCMake(/)

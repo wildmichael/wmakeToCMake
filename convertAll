@@ -1,0 +1,21 @@
+#!/usr/bin/env zsh
+
+if [[ $# -ne 1 ]]; then
+  echo "Usage: $0 dir" >&2
+  exit 2
+fi
+
+for d in $1/**/Make(/); do
+  [[ ! -f $d/files ]] && continue
+  t=$(egrep '^S?(EXE|LIB) = ' $d/files | awk '{print $1}')
+  if [[ $t == "EXE" ]]; then
+    if [[ $d == applications/test/* ]]; then
+      tt="test"
+    elif [[ $d == tutorials/* ]]; then
+      tt=tutorial
+    else tt=app
+    fi
+  else tt=lib
+  fi
+  $(dirname $0)/wmakeToCMake $tt $(dirname $d)
+done

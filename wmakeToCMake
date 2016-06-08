@@ -1,0 +1,134 @@
+#!/bin/sh
+#------------------------------------------------------------------------------
+# =========                 |
+# \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+#  \\    /   O peration     |
+#   \\  /    A nd           | Copyright (C) 1991-2009 OpenCFD Ltd.
+#    \\/     M anipulation  |
+#-------------------------------------------------------------------------------
+# License
+#     This file is part of OpenFOAM.
+#
+#     OpenFOAM is free software; you can redistribute it and/or modify it
+#     under the terms of the GNU General Public License as published by the
+#     Free Software Foundation; either version 2 of the License, or (at your
+#     option) any later version.
+#
+#     OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
+#     ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+#     FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+#     for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with OpenFOAM; if not, write to the Free Software Foundation,
+#     Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+#
+# Script
+#     wmakeToCMake
+#
+# Description
+#     A sneaky missuse of wmake
+#
+#------------------------------------------------------------------------------
+
+#CONFIG
+export WM_DIR=${WM_DIR:-"$HOME/Projects/FreeFOAM-tools/wmakeToCMake"}
+#END CONFIG
+
+# set some variables
+export WM_ARCH=wmakeToCMake
+export WM_COMPILER=
+export WM_OPTIONS=${WM_ARCH}${WM_COMPILER}
+export WM_LINK_LANGUAGE=None
+export WM_PROJECT=OpenFOAM
+export WM_PRECISION_OPTION=DP
+export PATH=$PATH:$WM_DIR
+
+Script=${0##*/}
+
+usage() {
+    while [ "$#" -ge 1 ]; do echo "$1"; shift; done
+    cat<<USAGE
+usage: $Script target dir
+
+A sneaky missuse of wmake to convert from wmake to CMake
+
+The 'target' is a a special target:
+    app       create CMake files for an application
+    lib       create CMake files for a library
+    test      create CMake files for a test
+    tutorial  create CMake files for a tutorial
+
+USAGE
+    exit 1
+}
+
+# provide immediate help, even if none of the environment is set
+if [ "$1" = "-h" -o "$1" = "-help" ]
+then
+    usage
+fi
+
+#------------------------------------------------------------------------------
+# Select the version of make to be used
+#------------------------------------------------------------------------------
+
+make="make"
+
+#------------------------------------------------------------------------------
+# check arguments and change to the directory in which to run wmake
+#------------------------------------------------------------------------------
+
+if [ $# -lt 2 ]
+then
+  usage
+fi
+makeOption=$1
+MakeDir=$2/Make
+
+#------------------------------------------------------------------------------
+# Check the existance of the Make directory and files file
+# If both exist, make the wmake derived files
+#------------------------------------------------------------------------------
+
+[ -d $MakeDir ] || {
+    echo "$Script error: '$MakeDir' directory does not exist" 1>&2
+    exit 1
+}
+
+[ -r $MakeDir/files ] || {
+    echo "$Script error: file '$MakeDir/files' does not exist" 1>&2
+    exit 1
+}
+
+# Spawn a sub-shell and unset MAKEFLAGS in that sub-shell to avoid
+# files and options being built in parallel
+(
+    cd $MakeDir
+    unset MAKEFLAGS
+    make -s -f $WM_DIR/MakefileOptions
+    make -s -f $WM_DIR/MakefileFiles allFiles
+)
+
+
+#------------------------------------------------------------------------------
+# Check the $OBJECTS_DIR = $MakeDir/$WM_OPTIONS/objectFiles file
+# was created successfully
+#------------------------------------------------------------------------------
+
+OBJECTS_DIR=$MakeDir/$WM_OPTIONS
+
+[ -r $OBJECTS_DIR/objectFiles ] || {
+    echo "$Script error: file '$OBJECTS_DIR/objectFiles' could not be created" 1>&2
+    exit 1
+}
+
+#------------------------------------------------------------------------------
+# Now start the actual conversion process
+#------------------------------------------------------------------------------
+
+cmd="$make -f $WM_DIR/Makefile MAKE_DIR=$MakeDir INCLUDE_DEPS=$OBJECTS_DIR/includeDeps $makeOption"
+#echo "cmd=$cmd"
+exec $cmd
+
+#------------------------------------------------------------------------------
